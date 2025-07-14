@@ -1,0 +1,67 @@
+/* ModalKim.module.css */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  
+  .modal-nested {
+    z-index: 10;
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  .modal-box {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .modal-content {
+    height: 100%;
+    overflow-y: auto;
+    color: black;
+  }
+  
+  /* Sizes */
+  .full {
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  .xlarge {
+    width: 90vw;
+    max-width: 96rem;
+  }
+  
+  .large {
+    width: 75vw;
+    max-width: 64rem;
+    max-height: 80vh;
+  }
+  
+  .medium {
+    width: 60vw;
+    max-width: 42rem;
+    max-height: 70vh;
+  }
+  
+  .small {
+    width: 38vw;
+    min-width: 24rem;
+    min-height: 50vh;
+  }
+  
+  .xsmall {
+    width: 35vw;
+    max-width: 20rem;
+    min-height: 20vh;
+  }
+  

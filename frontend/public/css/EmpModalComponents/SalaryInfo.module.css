@@ -1,0 +1,44 @@
+
+.row_1_col_1{
+    display: inline-flex;
+    justify-content: space-between;
+}
+
+.BasicSalary{
+    grid-area: basicsalary;
+}
+.BonusSalary{
+    grid-area: bonussalary;
+}
+.Allowance{
+    grid-area: allowance;
+}
+.Eshare{
+    grid-area: eshare;
+}
+
+
+.row_2_col_1{
+    display: grid;
+    grid-template-areas: 
+    'basicsalary allowance'
+    'bonussalary eshare';
+    justify-content: start;
+    align-items: center;
+    gap: 1rem 0.5rem;
+    justify-content: start;
+    align-items: center;
+}
+
+
+.body_row_3{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border: rgba(96, 100, 112,0.3) 0.1rem solid;
+    border-radius: 1rem;
+    padding-inline: 1.5rem;
+    padding-block: 1rem;
+}

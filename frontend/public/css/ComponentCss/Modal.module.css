@@ -1,0 +1,93 @@
+/* payroll.module.css */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0; /* shorthand for top: 0; right: 0; bottom: 0; left: 0; */
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: brightness(50%);
+  display: flex;
+  align-items: center;     /* vertical center */
+  justify-content: center; /* horizontal center */
+  z-index: 50;
+  padding: 1rem; /* Optional: adds spacing for smaller screens */
+}
+
+  
+  .modalContainer {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+  
+  .modalSmall {
+    width: 91.66%;
+    max-width: 25%;
+  }
+  
+  .modalMedium {
+    width: 91.66%;
+    max-width: 41.6667%;
+  }
+  
+  .modalLarge {
+    width: 91.66%;
+    max-width: 58.3333%;
+  }
+  
+  .modalXLarge {
+    width: 91.66%;
+    max-width: 83.3333%;
+  }
+  
+  .modalHeader,
+  .modalFooter {
+    padding: 1rem;
+    border-bottom: 1px solid #cbd5e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .modalFooter {
+    border-top: 1px solid #cbd5e0;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  
+  .modalBody {
+    padding: 1rem;
+  }
+  
+  .modalTitle {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+  
+  .closeButton {
+    font-size: 1.5rem;
+    color: #4b5563;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .closeButton:hover {
+    color: #000;
+  }
+  
+  .closeFooterButton {
+    background-color: #9ca3af;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .closeFooterButton:hover {
+    background-color: #6b7280;
+  }
+  
+
+

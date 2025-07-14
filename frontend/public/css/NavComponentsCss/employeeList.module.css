@@ -1,0 +1,34 @@
+.componentWrapper{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: start;
+    width: 100%;
+    padding-block: 2rem;
+    padding-inline: 2rem;
+    font-family: Outfit, sans-serif;
+}
+
+.payrollComp{
+    margin-bottom: 1rem;
+}
+.title{
+    color: #0b4727;
+    font-weight: bolder;
+}
+
+.content_action{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.action_btns{
+    display: inline-flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+}

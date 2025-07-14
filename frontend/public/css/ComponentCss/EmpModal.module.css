@@ -1,0 +1,45 @@
+.emp_modal_main{
+    display: grid;
+    grid-template-columns: auto 1fr;
+    overflow: hidden;
+    /* min-height: 100vh;
+    min-height: 100dvh; */
+    padding-inline: 1rem;
+}
+
+.sidetabs{
+    width: 13rem;
+    border-right: rgba(96, 100, 112, 0.3) solid 0.1rem;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    padding-block: 1rem;
+    gap: 1rem;
+    justify-content: start;
+    align-items: start;
+    cursor: pointer;
+}
+.main_body{
+    padding-block: 1rem;
+}
+
+.sidetabs li{
+    background-color: transparent;
+    padding-inline: 1rem;
+    padding-block: 0.5rem;
+    border-radius: 0.5rem;
+    transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.sidetabs li:hover{
+    background-color: #8CD3AF !important;
+    color: #FFFFFF !important;
+    transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.activeTab{
+    background-color: #8CD3AF !important;
+    color: #FFFFFF !important;
+    transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+

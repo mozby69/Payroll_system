@@ -1,0 +1,30 @@
+
+.table_container{
+    width: 100%;
+    text-align:center;
+    border-collapse: collapse;
+    font-size: 1rem;
+    color: #606470;
+
+}
+.table_container thead tr th{
+    padding:1rem;
+    font-weight: 800;
+}
+.table_container tbody tr td{
+    padding:.7rem;
+
+}
+.table_container tbody tr:last-child td {
+    padding-bottom: 1.8rem;
+}
+.table_container tbody tr:first-child td {
+    padding-top: 1.8rem;
+}
+.table_container tbody tr:hover{
+    background-color: rgb(238, 236, 236);
+}
+
+.header_table{
+    background-color: #F6F6F6;
+}

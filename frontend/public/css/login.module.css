@@ -1,0 +1,26 @@
+.container{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.JgcLogo{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.header{
+    text-align: center;
+    padding-inline: 5rem;
+    margin-bottom: 1rem;
+}
+.login_div{
+    background-color: #FFFFFF;
+    padding-inline: 2rem;
+    padding-block: 3rem;
+    border-radius: 1rem;
+    max-width: 30rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    box-shadow: rgba(0, 0, 0, 0.09) 0px 3px 12px;
+}

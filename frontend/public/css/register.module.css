@@ -1,0 +1,140 @@
+.registerModal{
+    display: flex;
+    flex-direction: column;
+    padding-inline: 2rem;
+    padding-block: 2rem;
+    font-family: Outfit, sans-serif;
+}
+.registerHeader{
+    display: flex;
+    justify-content: space-between;
+}
+
+.registerContent{
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.registerTitle{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-inline: 2.5rem;
+    padding-block: 1rem;
+}
+.registerTitle h2{
+    font-size: var(--fs-900);
+    font-weight: bold;
+    color: #606470;
+}
+.registerTitle p{
+    font-size: var(--fs-450);
+    color: #606470;
+    text-align: center;
+    max-width: 30ch;
+}
+
+.email{
+    grid-area: email;
+    width: 100%;
+}
+.role{
+    grid-area: role;
+    width: 100%;
+}
+.username{
+    grid-area: username;
+    width: 100%;
+}
+.password{
+    grid-area: password;
+    width: 100%;
+}
+
+.button{
+    grid-area: button;
+    width: 100%;
+}
+.registerForm{
+    display: grid;
+    grid-template-columns: auto auto auto;
+    grid-template-rows: auto;
+    gap: .8rem;
+    grid-template-areas: 
+    "email email role"
+    "username username username"
+    "password password password"
+    "button button button"
+    ;
+
+}
+.inputField{
+    width: 100%;
+    border-radius: .5rem;
+    padding: .3rem;
+    background-color: none;
+    border: 1px solid #6064706e;
+    color: #333333;
+    padding-left: 1rem;
+}
+
+.inputField:focus {
+    outline: none;
+    border-color: #8AD1AD;
+    box-shadow: 0 0 0 2px #8AD1AD;
+}
+
+.inputField::placeholder {
+    color: #606470;
+    opacity: 50%;
+    font-size: .8rem;
+  }
+
+  .inputFieldError{
+    width: 100%;
+    border-radius: .5rem;
+    padding: .3rem;
+    background-color: none;
+    border: 1px solid #db051a6e;
+    color: #333333;
+    padding-left: 1rem;
+}
+
+.inputFieldError:focus {
+    outline: none;
+    border-color: #8AD1AD;
+    box-shadow: 0 0 0 2px #8AD1AD;
+}
+
+.inputFieldError::placeholder {
+    color: #606470;
+    opacity: 50%;
+    font-size: .8rem;
+  }
+
+  .btnSubmit{
+    width: 100%;
+    background-color: #3A9668;
+    border-radius: .5rem;
+    border: none;
+    color: #FFFFFF;
+    font-size: .8rem;
+    padding: .5rem;
+  }
+
+  .errorMessage{
+    color: #FF0000;
+    font-size: .8rem;
+    margin-top: .5rem;
+  }
+  
+
+  .closeButton{
+    background-color: transparent;
+    border: none;
+    color: #606470;
+    font-size: 1.5rem;
+    cursor: pointer;
+    align-self: flex-end;
+  }

@@ -1,0 +1,74 @@
+.btn {
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+.primary {
+  background-color: #256947;
+  color: white;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.primary:hover {
+  background-color: #0b4727;
+  transition: background-color 0.3s ease-in-out;
+}
+.general {
+  background-color: #3A9668;
+  color: white;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.general:hover {
+  background-color: #22724a;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.secondary {
+  background-color: #dbdbdb;
+  color: white;
+}
+
+.secondary:hover {
+  background-color: #E6E6E6;
+  color: #333;
+}
+
+.danger {
+  background-color: #E55050;
+  color: white;
+}
+
+.danger:hover {
+  background-color: #ee5a5a;
+}
+
+.outline {
+  background-color: transparent;
+  border: 1px solid #0b4727;
+  color: #0b4727;
+}
+
+.outline:hover {
+  background-color: #0b4727;
+  color: #FFFFFF;
+}
+
+.modaledit{
+  background-color: transparent;
+  border: 1px solid rgba(96, 100, 112,0.5);
+  color: #606470;
+  border-radius: 1rem;
+  padding-block: 0.3rem;
+}
+
+.modaledit:hover{
+  background-color: rgba(96, 100, 112,0.2);
+  border: 1px solid #FFFFFF;
+  color: #606470;
+
+}

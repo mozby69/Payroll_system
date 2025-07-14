@@ -1,0 +1,102 @@
+
+
+
+
+/* modal face 1  row 1*/
+
+.row_col_1{
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+}
+
+
+/* modal face 1 row 2 */
+
+
+
+.Firstname,
+.Middlename,
+.Lastname,
+.Department,
+.Branch{
+    max-width: 10rem;
+}
+.Address{
+    max-width: 100%;
+}
+
+.Firstname{
+    grid-area: firstname;
+}
+.Middlename{
+    grid-area: middlename;
+}
+.Lastname{
+    grid-area: lastname;
+}
+.Department{
+    grid-area: department;
+}
+.Branch{
+    grid-area: branch;
+}
+.Address{
+    grid-area: address;
+}
+
+.row_2_col_1{
+    display: grid;
+    grid-template-areas: 
+    'firstname middlename lastname'
+    'department branch branch'
+    'address address address';
+    gap: 1rem 0.5rem;
+    justify-content: start;
+    align-items: center;
+}   
+
+
+/* modal face 1 row 3 */
+
+.Empcode,
+.Paycode,
+.SSS,
+.Tin,
+.Phlhlt,
+.Pagibig{
+    max-width: 13rem;
+}
+.Empcode{
+    grid-area: empcode;
+}
+.Paycode{
+    grid-area: paycode;
+}
+.SSS{
+    grid-area: sss;
+}
+.Phlhlt{
+    grid-area: phlhlt;
+}
+.Tin{
+    grid-area: tin;
+}
+.Pagibig{
+    grid-area: pagibig;
+}
+
+
+.row_3_col_1{
+    display: grid;
+    grid-template-areas: 
+    'empcode paycode'
+    'sss phlhlt'
+    'tin pagibig';
+    gap: 1rem 1rem;
+    justify-content: start;
+    align-items: center;
+}

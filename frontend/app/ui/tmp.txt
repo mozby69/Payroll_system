@@ -1,0 +1,957 @@
+ useEffect(() => {
+      if (!data?.data) return;
+    
+      const transformed: PreparePayroll[] = data.data.map((emp) => {
+        const rawSalary = emp.basic_salary;
+        const salary = parseFloat(rawSalary);
+        const dailyRate = (salary * 12) / 262;
+        // const perLatePenalty = dailyRate / 32;
+    
+        // const rawLate = Number(emp.LateCount) || 0;
+        // const lateDeduction = (perLatePenalty * rawLate).toFixed(2);
+     
+
+    
+        const rawAbsent = Number(emp.TotalAbsentHours) || 0;
+        const res = (dailyRate * rawAbsent).toFixed(2);
+
+        const overtimeAtt = emp.OvertimeAtt ?? {};
+        const nightShiftAtt = emp.NightShiftAtt ?? {};
+        let overtimeRate = 0;
+        let totalOvertimeAmount = 0;
+
+        const toFloatHM = (timeStr: string): number => {
+          const [hh, mm] = timeStr.split(":");
+          return parseFloat(`${parseInt(hh)}.${mm}`);
+        };
+    
+        if (typeof overtimeAtt === "object") {
+          if (overtimeAtt["Special Day FRD"]) {
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.25;
+            const hours = toFloatHM(overtimeAtt["Special Day FRD"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+    
+          if (overtimeAtt["Rest Day"]) {
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.3;
+            const hours = toFloatHM(overtimeAtt["Rest Day"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+        }
+
+        if (typeof nightShiftAtt === "object"){
+          if(nightShiftAtt["Double Regular Holiday"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.25;
+            const hours = toFloatHM(nightShiftAtt["Double Regular Holiday"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+        }
+    
+        
+    
+        return {
+          PayCode: emp.PayCode,
+          EmpCodeId: emp.EmpCodeId,
+          basic_salary: emp.basic_salary,
+          LateCount:  computation.late(emp.basic_salary, emp.LateCount),
+          TotalAbsentHours: res,
+          TotalUndertime: 'na',
+          TotalOvertime: totalOvertimeAmount.toFixed(2),
+          OvertimeAtt:'',
+          NightShiftAtt:nightShiftAtt
+        };
+      });
+    
+      setComputedData(transformed);
+    }, [data]);
+    
+
+    const  computation = {
+
+    late: (basic_salary: string, LateCount: string)=>{
+        const rawSalary = basic_salary;
+        const salary = parseFloat(rawSalary);
+        const dailyRate = (salary * 12) / 262;
+        const perLatePenalty = dailyRate / 32;
+        const rawLate = Number(LateCount) || 0;
+        const lateDeduction = (perLatePenalty * rawLate).toFixed(2);
+        return lateDeduction;
+    }
+
+
+    
+
+}
+
+export default computation;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // const handleUpdate = () => {
+    //   if (!selectedEmployee) return;
+    //   const form = document.getElementById("edit-preparePayroll-form") as HTMLFormElement;
+    //   const formData = new FormData(form);
+
+    //   const updatedData: PreparePayroll = {
+    //     PayCode: selectedEmployee.PayCode, 
+    //     EmpCodeId: selectedEmployee.EmpCodeId,
+    //     LateCount: formData.get("LateCount") as string,
+    //     TotalAbsentHours: formData.get("TotalAbsentHours") as string,
+    //     TotalUndertime: formData.get("TotalUndertime") as string,
+    //     TotalOvertime: formData.get("TotalOvertime") as string,
+    //     basic_salary:formData.get("basic_salary") as string,
+    //     Action:formData.get("Action") as string,
+    //   };
+    
+    //   updatePayroll(updatedData, {
+    //     onSuccess: () => {
+    //       SweetAlert.successAlert("Updated", "Event updated successfully");
+    //       closeModal2();
+    //       refetch();
+    //     },
+    //     onError: () => {
+    //       SweetAlert.errorAlert("Error", "Failed to update event.");
+    //     },
+    //   });
+    // };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ********************************************************************************************************************
+
+    import { PreparePayroll } from "../types/types";
+
+const Computation = {
+
+    all:(emp: PreparePayroll) => {
+        const rawSalary = emp.basic_salary;
+        const salary = parseFloat(rawSalary);
+        const dailyRate = (salary * 12) / 262;
+        const perLatePenalty = dailyRate / 32;
+    
+        const rawLate = Number(emp.LateCount) || 0;
+        const late_result = (perLatePenalty * rawLate).toFixed(2);
+         
+        const rawAbsent = Number(emp.TotalAbsentHours) || 0;
+        const absent_result = (dailyRate * rawAbsent).toFixed(2);
+
+        const overtimeAtt = emp.OvertimeAtt ?? {};
+        const nightShiftAtt = emp.NightShiftAtt ?? {};
+        const regularAtt = emp.RegularAtt ?? {};
+        const nightShiftOtAtt = emp.NightShiftOtAtt ?? {};
+
+        let overtimeRate = 0;
+        let totalOvertimeAmount = 0;
+        let empcode = emp.EmpCodeId;
+        let paycode = emp.PayCode;
+
+        const toFloatHM = (timeStr: string): number => {
+          const [hh, mm] = timeStr.split(":");
+          return parseFloat(`${parseInt(hh)}.${mm}`);
+        };
+
+
+          
+        
+    
+        if (typeof overtimeAtt === "object") {
+
+          if (overtimeAtt["Special Day FRD"]) {
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.95;
+            const hours = toFloatHM(overtimeAtt["Special Day FRD"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+    
+          if (overtimeAtt["Rest Day"]) {
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.69;
+            const hours = toFloatHM(overtimeAtt["Rest Day"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+          if(overtimeAtt["Special Day"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.69;
+            const hours = toFloatHM(overtimeAtt["Special Day"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+          if(overtimeAtt["Regular Holiday"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 2.6;
+            const hours = toFloatHM(overtimeAtt["Regular Holiday"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+          if(overtimeAtt["Regular HFRD"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 3.38;
+            const hours = toFloatHM(overtimeAtt["Regular HFRD"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+          if(overtimeAtt["Double RH"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 3.9;
+            const hours = toFloatHM(overtimeAtt["Double RH"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+          if(overtimeAtt["Double RHFRD"]){
+            const rawSalary = emp.basic_salary;
+            const salary = parseFloat(rawSalary);
+            const dailyRate = (salary * 12) / 262;
+            overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 5.07;
+            const hours = toFloatHM(overtimeAtt["Double RHFRD"]);
+            const final = parseFloat((hours * overtimeRate).toFixed(2));
+            totalOvertimeAmount += final; 
+          }
+
+
+        }
+
+   
+
+        if(typeof nightShiftAtt === "object"){
+               
+            if(nightShiftAtt["Special Day"]){
+             
+              const rawSalary = emp.basic_salary;
+              const salary = parseFloat(rawSalary);
+              const dailyRate = (salary * 12) / 262;
+              overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.3;
+              const hours = toFloatHM(nightShiftAtt["Special Day"]);
+              const final = parseFloat((hours * overtimeRate).toFixed(2));
+              totalOvertimeAmount += final; 
+            }
+
+            if(nightShiftAtt["Rest Day"]){
+             
+                const rawSalary = emp.basic_salary;
+                const salary = parseFloat(rawSalary);
+                const dailyRate = (salary * 12) / 262;
+                overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.3;
+                const hours = toFloatHM(nightShiftAtt["Rest Day"]);
+                const final = parseFloat((hours * overtimeRate).toFixed(2));
+                totalOvertimeAmount += final; 
+              }
+
+          }
+
+
+          console.log("nightShiftAtt =", nightShiftAtt,emp.EmpCodeId,emp.PayCode);
+
+
+          if(typeof regularAtt === "object"){
+               
+            if(regularAtt["Special Day"]){
+             
+              const rawSalary = emp.basic_salary;
+              const salary = parseFloat(rawSalary);
+              const dailyRate = (salary * 12) / 262;
+              overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.3;
+              const hours = toFloatHM(regularAtt["Special Day"]);
+              const final = parseFloat((hours * overtimeRate).toFixed(2));
+              totalOvertimeAmount += final; 
+            }
+
+            if(regularAtt["Rest Day"]){
+             
+                const rawSalary = emp.basic_salary;
+                const salary = parseFloat(rawSalary);
+                const dailyRate = (salary * 12) / 262;
+                overtimeRate = (parseFloat(dailyRate.toFixed(2)) / 8) * 1.3;
+                const hours = toFloatHM(regularAtt["Rest Day"]);
+                const final = parseFloat((hours * overtimeRate).toFixed(2));
+                totalOvertimeAmount += final; 
+              }
+
+          }
+      
+        return  {totalOvertimeAmount, late_result,absent_result};
+       
+    }
+
+
+
+
+    
+
+}
+
+export default Computation;
+
+
+
+******************************************************************************************************************** FORMULA.TSX
+
+const parseJsonField = (field: string | Record<string, string> | null | undefined): Record<string, string> => {
+  if (!field) return {};
+  
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+
+  if (typeof field === "object") {
+    return field;
+  }
+
+  return {};
+};
+
+
+
+
+
+***************************************************************************************** JULY 3 2025 *********************************************
+
+"use client";
+import styles from '@/public/css/prepare_payroll.module.css';
+import Table from '@/app/components/Table';
+import { Column } from '@/app/types/types';
+import { useEmployeesPayroll,useUpdateEmployeePayroll,useSavePayrollArchive } from '@/app/hooks/usePreparePayroll';
+import { useState,useEffect,useMemo,useRef } from "react";
+import { useDebounce } from "use-debounce";
+import SweetAlert from '@/app/components/Swal';
+import type {PreparePayroll} from "@/app/types/types";
+import Button from '../components/buttons';
+import { late } from 'zod';
+import MainModal from "@/app/components/ModalJohn";
+import { modalConfigMap, getModalContent } from '../lib/ModalRegistry';
+import { ModalConfig, ModalKey } from '@/app/types/types';
+import { useModal } from '../hooks/customHooks/useModal';
+import Table2 from "@/app/components/TableComponent/Table"; 
+import Computation from '../components/formula';
+import SearchButton from '../components/SearchButton';
+import PayrollDropdown from '../ui/PrepareModalComponents/dropdownMonths';
+
+
+
+export default function PreparePayroll(){
+    const [currentPage, setCurrentPage] = useState(1);
+    const limit = 8;
+    const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch] = useDebounce(searchTerm, 300);
+    const [selectedPayCode, setSelectedPayCode] = useState<string>(""); 
+    const { data, isLoading,refetch } = useEmployeesPayroll(currentPage, limit, debouncedSearch,selectedPayCode);
+    const { mutate: updatePayroll } = useUpdateEmployeePayroll();
+    const { mutate: saveArchive, isPending } = useSavePayrollArchive();
+    const [computedData, setComputedData] = useState<PreparePayroll[]>([]);
+    const { isOpen, modalType, modalKey, rowDataList, openModal: openModal2, closeModal  } = useModal<ModalKey>();
+    const totalPages = data?.pagination.totalPages || 1;
+
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const pagination = data?.pagination ?? { total: 0, totalPages: 1, currentPage: 1, perPage: 10 };
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [formData, setFormData] = useState<PreparePayroll | null>(null);
+    const [selectedEmployee, setSelectedEmployee] = useState<PreparePayroll | null>(null);
+    const tableRef = useRef<HTMLDivElement | null>(null);
+    const [tableData, setTableData] = useState<any[]>([]);
+
+    const groupPayCodesByMonth = (payCodes: string[]) => {
+      const grouped: Record<string, string[]> = {};
+      payCodes.forEach((code) => {
+        const [month] = code.split("-");
+        if (!grouped[month]) {
+          grouped[month] = [];
+        }
+        grouped[month].push(code);
+      });
+      return grouped;
+    };
+  
+    const monthOrder = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const groupedPayCodesUnsorted = groupPayCodesByMonth(data?.payCodeOptions || []);
+    const groupedPayCodes = Object.fromEntries(
+      Object.entries(groupedPayCodesUnsorted).sort(
+        ([monthA], [monthB]) =>
+          monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB)
+      )
+    );
+    
+
+    useEffect(() => {
+      if (!data?.data) return;
+        const backendData = data.data.map(emp => {
+        const total = Computation.all(emp);
+        const {TotalUndertime,TotalHoursWorked,LateDeduction,OvertimeAtt,NightShiftAtt,RegularAtt,NightShiftOtAtt,...filteredEmp} = emp;
+    
+        return {
+          ...filteredEmp,
+          LateCount: total.late_result,
+          TotalAbsentHours: total.absent_result,
+          TotalOvertime: total.totalOvertimeAmount.toFixed(2),
+          GrossPay: total.final_grosspay,
+          sss_employee_share:emp.sss_employee_share,
+        };
+      });
+      const uiData = backendData.map(row => ({...row,
+        action: (
+          <button
+            className={styles.viewButton}
+            onClick={() => openModal2("PreparePayrollView_ModalKey", "view", row)
+            }>View</button>
+        ),
+      }));
+      setComputedData(backendData); 
+      setTableData(uiData);    
+    }, [data]);
+    
+    
+
+    const handleSavePayroll = () => {
+      if (!selectedPayCode) {
+        SweetAlert.errorAlert("Select a payroll date first.");
+        return;
+      }
+      const totalLate = computedData.reduce((sum, row) => sum + parseFloat(row.LateCount || "0"), 0);
+      const totalAbsent = computedData.reduce((sum, row) => sum + parseFloat(row.TotalAbsentHours || "0"), 0);
+      const totalOvertime = computedData.reduce((sum, row) => sum + parseFloat(row.TotalOvertime || "0"), 0);
+    
+      SweetAlert.confirmationAlert("Confirm Save",`Are you sure you want to archive payroll for "${selectedPayCode}"?`, () => {
+          saveArchive(
+            {
+              paycode: selectedPayCode,
+              totals: {
+                Total_Late: totalLate,
+                Total_Absent: totalAbsent,
+                Total_OverTimePay: totalOvertime,
+              },
+              computedData, 
+            },
+            {
+              onSuccess: () => {
+                SweetAlert.successAlert("Saved", "Payroll archived successfully.");
+              },
+              onError: (error: any) => {
+                if (error?.response?.status === 409) {
+                  SweetAlert.warningAlert(
+                    "Already Archived",
+                    error.response.data?.message || "This payroll period has already been archived."
+                  );
+                } else {
+                  SweetAlert.errorAlert("Error", "Failed to save payroll.");
+                }
+              },
+            }
+          );
+        }
+      );
+    };
+    
+
+    useEffect(() => {
+      setCurrentPage(1);
+    },[debouncedSearch]
+    );
+
+
+    const columns: Column[] = [
+      { header: "Pay Cycle", accessor: "PayCode"},
+      { header: "EmpCode", accessor: "EmpCodeId"},
+      { header: "Basic Salary", accessor: "basic_salary" },
+      { header: "Late", accessor: "LateCount" },
+      { header: "Absent", accessor: "TotalAbsentHours" },
+      { header: "Gross Pay", accessor: "GrossPay" },
+      { header: "Overtime", accessor: "TotalOvertime" }, 
+      { header: "Action",accessor:"action"}
+    ];
+  
+
+
+        
+    return(
+
+      
+        <div className={styles.main_container}>
+
+            <div className={`Wrapper-wider ${styles.main_body}`}>
+
+              <div className={styles.title_header}>
+                    <div className={styles.header_col}>
+                        <h1 className='fs-600 fw-bold txt-color-txt-clr-dark-neutral'>Payroll List</h1>
+                        <p className='fs-400 fw-regular txt-color-txt-clr-light-neutral'>View overall attendance and performance.</p>
+                    </div>
+
+                    <div className={styles.header_col_1}>
+                    <PayrollDropdown
+                      groupedPayCodes={groupedPayCodes}
+                      selected={selectedPayCode}
+                      setSelected={(val) => {
+                        setSelectedPayCode(val);
+                        setCurrentPage(1);
+                      }}
+                    />
+
+                  </div>
+
+                
+                   
+              </div>
+
+
+
+              <div className={styles.inner_container}>
+
+              <div className={styles.searcButton}>
+                <SearchButton searchTerm={searchTerm} setSearchTerm={setSearchTerm}></SearchButton>
+              </div>
+
+              <div style={{ minHeight: "500px"}}>
+                    <Table
+                      data={tableData}
+                      columns={columns}
+                      withPagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+
+  
+
+                  <div className={styles.title_footer}>
+
+                      <Button className='fs-400 fw-bold ' variant='general'onClick={handleSavePayroll} disabled={isPending}>
+                        {isPending ? "Saving..." : "Save Payroll"}
+                      </Button>
+
+                      <h2 className='fs-4000 fw-bold txt-color-txt-clr-light-neutral'>
+                          Payroll Date:{" "}
+                          {selectedPayCode ? <span>{selectedPayCode}</span> : "Please select a date"}
+                      </h2>
+
+                  </div>
+                 
+              </div>
+
+
+    
+
+              <MainModal 
+                isOpen={isOpen}
+                modalSize={modalKey? modalConfigMap[modalKey]?.size : "large"}
+                modalTitle={modalKey ? modalConfigMap[modalKey]?.title : ""}
+                closeModal={closeModal}
+                >
+                {modalKey && modalType && getModalContent(modalKey,modalType,rowDataList,closeModal)}
+              </MainModal>
+
+                        
+
+
+
+
+            </div>
+
+        </div>
+
+
+
+
+
+       
+      
+    );
+}
+
+
+*********************************************************************************************** July 7 2025 *****************************
+
+"use client";
+import Table from "@/app/components/Table";
+import { Column } from "@/app/types/types";
+import styles from "@/public/css/master_list.module.css";
+import { useEmployees } from "@/app/hooks/useEmployee";
+import dayjs from "dayjs";
+import { useState,useEffect } from "react";
+import SearchButton from "@/app/components/SearchButton";
+import { useDebounce } from "use-debounce";
+import Image from "next/image";
+import ResponsiveImage from "../components/ResponsiveImg";
+import Modal from "../components/Modal";
+import EmployeeModal from "../ui/UserModals/EmployeeModal";
+import { useDisplayAllEmployee } from "@/app/hooks/useEmployee";
+
+
+function EmployeeMasterlist() {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch] = useDebounce(searchTerm, 300);
+    const limit = 11;
+    const { data, isLoading } = useEmployees(currentPage, limit, debouncedSearch);
+    const totalPages = data?.pagination.totalPages || 1;
+    const [employeeModal, setEmployeeModal] = useState(false);
+    const {data:allemployees} = useDisplayAllEmployee();
+
+    useEffect(() => {
+      setCurrentPage(1);
+    }, [debouncedSearch]);
+    
+  const columns: Column[] = [
+    { header: "EmpCode", accessor: "EmpCode"},
+    { header: "Name", accessor: "name"},
+    { header: "Gender", accessor: "Gender"},
+    { header: "Birthday", accessor: "formattedDOB"},
+    { header: "Civil Status", accessor: "CivilStatus"},
+    { header: "Action", accessor: "action"}, 
+  ];
+  const formattedData = data?.data.map((emp) => ({
+    EmpCode: emp.EmpCode,
+    name: `${emp.Firstname ?? ""} ${emp.Middlename ?? ""} ${emp.Lastname}`.trim() || "NA",
+    Gender: emp.Gender ?? "NA",
+    formattedDOB: emp.DateofBirth ? dayjs(emp.DateofBirth).format("MMM DD, YYYY") : "NA",
+    CivilStatus: emp.CivilStatus ?? "NA",
+    action: "Edit",
+  })) || [];
+
+
+  const handleCloseModal = () => {
+    setEmployeeModal(false);  
+  }
+
+  console.log("data:",allemployees);
+
+  return (
+
+    <div className={styles.main_container}>
+        <div className={`Wrapper-wider ${styles.main_body}`}>
+
+          <div className={styles.list_header}>
+
+            <div className={`fs-500 fw-bold txt-color-txt-clr-dark-neutral ${styles.main_title}`}>
+              <ResponsiveImage src="/images/EmployeesIcon.svg" alt="emp_icon" width={4} height={3.5}/>
+              <div>
+                Total Employees
+                <p className="fs-600 fw-bold">500</p>
+              </div>
+            </div>
+            <div className={styles.header_filter}>
+              <SearchButton searchTerm={searchTerm} setSearchTerm={setSearchTerm}></SearchButton>
+
+              {/* Temporary Select Display */}
+
+              <div>
+                <select name="count" id="emp_count" className="fs-400 fw-regular txt-color-txt-clr-light-neutral">
+                  <option value="10">10</option>
+                  <option value="10">10</option>
+                  <option value="10">10</option>
+                  <option value="10">10</option>
+                </select>
+                <label htmlFor="emp_count" className="fs-400 txt-color-txt-clr-light-neutral">Show Entries</label>
+              </div>
+              {/* Temporary Select Display */}
+            </div>
+            
+          </div>
+
+          <div className={styles.table_container}>
+          
+
+          </div>
+
+        </div>
+
+        <div className={`Wrapper-wider ${styles.card_list}`}>
+
+              <div className={styles.emp_card}>
+                <div className={styles.card_header}>
+                  <p className="fs-200 fw-bold">Regular</p>
+                  <div onClick={(e)=>{
+                    setEmployeeModal(true)
+                  }}>
+                    <ResponsiveImage src="/images/card_menu.svg" alt="Payroll" />
+                  </div>
+                 
+                </div>
+                <div className={styles.card_body}>
+                  <div className={styles.card_profile}>
+                      <ResponsiveImage src="/images/UserProfile.svg" alt="Payroll" width={4} height={4} />
+                  </div>
+                  <h1 className="fs-500 fw-bold txt-color-txt-clr-dark-neutral">Christian Lloyd Magtolis</h1>
+                  <h5 className="fs-400 fw-regular txt-color-txt-clr-light-neutral">Software Engineer</h5>
+                </div>
+                <div className={styles.card_footer}>
+                  <p className="fs-300 fw-regular txt-color-txt-clr-light-neutral">Employment Date :</p>
+                  <p className="fs-300 fw-regular txt-color-txt-clr-light-neutral">November 01, 2024</p>
+                </div>
+              </div>
+             
+
+        </div>
+
+
+        <Modal isOpen={employeeModal} onClose={handleCloseModal} title="Employee Details" size="xlarge">
+                  <EmployeeModal isOpen={employeeModal}/>
+        </Modal>
+      
+    </div>
+ 
+  );
+}
+
+export default EmployeeMasterlist;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+******************************************************************* july 14 2025 *******************************
+
+
+
+
+
+import { PreparePayroll } from "../types/types";
+
+
+
+const parseJsonField = (field: string | Record<string, string> | null | undefined): Record<string, string> => {
+  if (!field) return {};
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field);
+    } catch {
+      return {};
+    }
+  }
+  return field;
+};
+
+const toFloatHM = (timeStr: string): number => {
+  if (!timeStr || typeof timeStr !== "string") return 0;
+  const [hh, mm] = timeStr.split(":");
+  return parseFloat(`${parseInt(hh)}.${mm}`);
+};
+
+const computeFromSource = (labelMap: Record<string, number>, source: Record<string, string>, dailyRate: number): number => {
+  let total = 0;
+  for (const key in source) {
+    const multiplier = labelMap[key];
+    if (!multiplier) continue;
+
+    const hours = toFloatHM(source[key]);
+    const rate = (dailyRate / 8) * multiplier;
+    const final = parseFloat((hours * rate).toFixed(2));
+    total += final;
+  }
+  return total;
+};
+
+
+const Computation = {
+
+    all: (emp: PreparePayroll, philhealthRate:number,selectedPayCode:string) => {
+      
+      const salary = parseFloat(emp.basic_salary);
+      const basic_pay = salary / 2;
+
+
+      const dailyRate = (salary * 12) / 262;
+      const perLatePenalty = dailyRate / 32;
+  
+      const rawLate = Number(emp.LateCount) || 0;
+      const late_result = (perLatePenalty * rawLate).toFixed(2);
+  
+      const rawAbsent = Number(emp.TotalAbsentHours) || 0;
+      const absent_result = (dailyRate * rawAbsent).toFixed(2);
+
+
+
+      const overtimeAtt = parseJsonField(emp.OvertimeAtt);
+      const nightShiftAtt = parseJsonField(emp.NightShiftAtt);
+      const regularAtt = parseJsonField(emp.RegularAtt);
+      const nightShiftOtAtt = parseJsonField(emp.NightShiftOtAtt);
+      
+      
+  
+      const overtimeLabels = {
+        "Ordinary Day":1.25,
+        "Rest Day": 1.69,
+        "Special Day": 1.69,
+        "Special Day FRD": 1.95,
+        "Regular Holiday": 2.6,
+        "Regular HFRD": 3.38,
+        "Double RH": 3.9,
+        "Double RHFRD":5.07,
+      };
+  
+      const nightShiftLabels = {
+        "Ordinary Day":1.1,
+        "Rest Day": 1.43,
+        "Special Day": 1.43,
+        "Special Day FRD": 1.65,
+        "Regular Holiday": 2.2,
+        "Regular HFRD": 2.86,
+        "Double RH": 3.3,
+        "Double RHFRD":4.29,
+      };
+  
+      const regularLabels = {
+        "Rest Day": 1.3,
+        "Special Day": 1.3,
+        "Special Day FRD": 1.5,
+        "Regular Holiday": 2,
+        "Regular HFRD": 2.6,
+        "Double RH": 3,
+        "Double RHFRD":3.9,
+      };
+  
+      const nightShiftOtLabels = {
+        "Ordinary Day":1.375,
+        "Rest Day": 1.859,
+        "Special Day": 1.859,
+        "Special Day FRD": 2.145,
+        "Regular Holiday": 2.86,
+        "Regular HFRD": 3.718,
+        "Double RH": 4.29,
+        "Double RHFRD":5.577,
+      };
+  
+      const totalOvertimeAmount =
+        computeFromSource(overtimeLabels, overtimeAtt, dailyRate) +
+        computeFromSource(nightShiftLabels, nightShiftAtt, dailyRate) +
+        computeFromSource(regularLabels, regularAtt, dailyRate) +
+        computeFromSource(nightShiftOtLabels, nightShiftOtAtt, dailyRate);
+
+
+        
+        const isSecondCutoff = selectedPayCode.includes("-15-");
+        const philhealth_cont = isSecondCutoff ? basic_pay * philhealthRate : 0;
+
+        const sss_cutoff = selectedPayCode.includes("-15-");
+        const sss_result = sss_cutoff ? emp.sss_employee_share : 0;
+
+        const pagibig_cutoff = selectedPayCode.includes("-16-");
+        const pagibig_result = pagibig_cutoff ? emp.pagibig_employee_share: 0;
+
+        const grosspay = basic_pay - parseFloat(late_result) - parseFloat(absent_result) + totalOvertimeAmount;
+        const final_grosspay = parseFloat(grosspay.toFixed(2));
+        const net_pay = final_grosspay - sss_result - pagibig_result - philhealth_cont;
+      
+ 
+      return {
+        totalOvertimeAmount,
+        late_result,
+        absent_result,
+        final_grosspay,
+        net_pay,
+        basic_pay,
+        philhealth_cont,
+        sss_result,
+        pagibig_result,
+
+      };
+
+    },
+
+  };
+  
+
+
+
+
+export default Computation;

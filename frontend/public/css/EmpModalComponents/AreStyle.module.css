@@ -1,0 +1,115 @@
+.LoanAmount{
+    grid-area: LoanAmount;
+    border-right: 0.1rem solid rgba(96, 100, 112,0.5);
+}
+.Monthly{
+    grid-area: Monthly;
+    border-right: 0.1rem solid rgba(96, 100, 112,0.5);
+}
+.LoanTerm{
+    grid-area:LoanTerm;
+    border-right: 0.1rem solid rgba(96, 100, 112,0.5);
+}
+.active_status{
+    grid-area: active_status;
+    text-align: center;
+}
+.Description{
+    grid-area: Description;
+    border-top: 0.1rem solid rgba(96, 100, 112,0.5);;
+    padding-top: 1rem;
+}
+.DateRange{
+    grid-area: DateRange;
+    border-top: 0.1rem solid rgba(96, 100, 112,0.5);;
+    padding-top: 1rem;
+
+}
+.Agreement{
+    grid-area:Agreement;
+    border-top: 0.1rem solid rgba(96, 100, 112,0.5);;
+    padding-top: 1rem;
+}
+.Edit_btn{
+    grid-area: Edit_btn;
+  
+}
+
+.main_body{
+    display: grid;
+    grid-template-areas: 
+    'LoanAmount Monthly LoanTerm active_status'
+    'Description DateRange Agreement Edit_btn';
+    justify-content: start;
+    align-items: center;
+    gap: 1rem 0rem;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.AreInput{
+    max-width: 10rem;
+}
+
+
+.AreList{
+    display: grid;
+    grid-template-rows: repeat(1, 1fr);
+    padding-block: 1rem;
+    grid-auto-flow: column;
+    justify-content: start;
+    overflow-x: auto;
+    gap: 1rem; 
+    max-width: 100%;
+}
+.are_card{
+    background-color: white;
+    box-shadow: rgba(17, 17, 26, 0.05) 0px 1px 0px, rgba(17, 17, 26, 0.1) 0px 0px 8px;
+    padding-inline: 1rem;
+    padding-block: 1rem;
+    min-width: 15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.are_card_row_1,
+.are_card_row_2,
+.are_card_row_3{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.are_card_row_1,
+.are_card_row_3{
+    width: 100%;
+    display: inline-flex;
+    justify-content: space-between;
+}
+
+.List_Monthly{
+    text-align: center;
+}
+
+.Loan_Status >h5{
+    box-shadow: rgba(255, 185, 151, 0.25) 0px 30px 60px -12px inset, rgba(255, 185, 151, 0.3) 0px 18px 36px -18px inset;
+    padding-inline: 1rem;
+    color: rgba(255, 185, 151, 1);
+    padding-block: 0.2rem;
+    border-radius: 1rem;
+    cursor: pointer;
+}
+
+.active_status > h3{
+    box-shadow: rgba(94, 160, 97,0.25) 0px 30px 60px -12px inset, rgba(94, 160, 97,0.3) 0px 18px 36px -18px inset;
+    padding-inline: 1rem;
+    color: rgba(94, 160, 97,1);
+    padding-block: 0.2rem;
+    border-radius: 1rem;
+    cursor: pointer;
+}

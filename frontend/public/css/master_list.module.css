@@ -1,0 +1,139 @@
+
+.main_container{
+    background-color: #efede7;
+    height: auto;
+    padding-block: 2rem;
+}
+
+.table_container{
+    margin-top:1.2rem;
+}
+.main_title > div{
+   display: block;
+
+}
+
+.main_title{
+    display: inline-flex;
+    gap: 1rem;
+    width: 100%;
+    align-items: center;
+}
+
+.main_title >div > p {
+    color: #3A9668;
+}
+
+.list_header{
+    display: flex;
+    width:100%;
+    justify-content: space-between;
+    align-items: end;
+    padding-inline: 2rem;
+    padding-block: 1.5rem;
+    background-color: #FFFFFF;
+    border-radius: 1rem;
+}
+
+.header_filter{
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: end;
+    align-items: center;
+    gap: 1rem;
+}
+
+
+.no_results h1{
+    padding: 1rem;
+    text-align: center;
+    font-weight: bold;
+    color: #888;
+    font-size: 1.2rem;
+}
+.loading_table{
+    text-align: center;
+    margin-top:1.4rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+}
+
+
+/* Employee card List */
+  .card_list{
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    padding-block: 1rem;
+    grid-auto-flow: column;
+    justify-content: start;
+    overflow-x: auto;
+    gap: 1rem; 
+  }
+  
+  .emp_card{
+    background-color: #FFFFFF;
+    position: relative;
+    min-width: 15rem;
+    width: 20rem;
+    box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+  }
+
+  .card_header >p{
+    background-color: #3A9668;
+    color: #FFFFFF;
+    padding-inline: 0.5rem;
+    padding-block: 0.3rem;
+    border-radius: 1rem;
+    letter-spacing: 0.1rem;
+}
+
+  .card_header,
+  .card_footer{
+    display: inline-flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+  }
+
+  .card_body{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-block: 1rem;
+  }
+
+  .card_profile{
+    background-color: #F6F6F6;
+    padding-inline: 0.5rem;
+    padding-block: 0.5rem;
+    border-radius: 100%;
+    border: #3A9668 0.1rem solid;
+    margin-bottom: 1rem;
+  }
+/* Temporary Css for Select */
+
+.header_filter >div > select{
+    padding-block: 0.5rem;
+    background-color: #F6F6F6;
+    border: none;
+    border-radius: 0.3rem;
+    padding-inline: 0.5rem;
+}
+.header_filter >div{
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+}

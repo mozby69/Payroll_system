@@ -1,0 +1,49 @@
+.container{
+  height:100vh;
+  width: 100%;
+  display:grid;
+  align-items: center;
+  justify-content: center;
+}
+.login_div{
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  flex-direction: column;
+  border:1px solid rgb(11, 122, 67);
+  border-radius: .4rem;
+  width:100%;
+  padding-inline:6rem;
+  padding-block:6rem;
+}
+.password{
+  margin-top: .6rem;
+  margin-bottom:.6rem;
+}
+.login_div input{
+  padding-block:.4rem;
+  padding-inline:.6rem;
+  border:1px solid green;
+  width:15rem;
+  border-radius: .2rem;
+}
+.login_div button{
+  padding-inline:2rem;
+  padding-block: .4rem;
+  background-color: rgb(59, 139, 59);
+  color:white;
+  border:none;
+  font-weight: 500;
+  border-radius: .2rem;
+}
+.login_div button:hover{
+  background-color: green;
+}
+.hero1{
+  text-align: center;
+  margin-bottom: .6rem;
+  font-size: 2rem;
+  font-weight: 600;
+  color:green;
+}
+

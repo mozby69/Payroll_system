@@ -1,0 +1,39 @@
+.main_pagination {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+    align-items: center;
+  }
+  
+  .page_button {
+    padding: 6px 12px;
+    border:none;
+    background-color: white;
+    color: #333;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 36px;
+  }
+  
+  .page_button:hover:not(:disabled) {
+    background-color: #eee;
+  }
+  
+  .page_button:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  
+  .active {
+    background-color: #208344;
+    color: white;
+  }
+  
+  .page_dots {
+    padding: 6px 12px;
+    color: #777;
+    user-select: none;
+  }
+  

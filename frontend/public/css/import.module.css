@@ -1,0 +1,40 @@
+/* relative w-[180px] h-[180px] */
+.bg_img{
+    position: relative;
+    width: 350px;
+    height: 350px;
+}
+
+.first_section{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.parent_import{
+    display: flex;
+    flex-direction: column;
+}
+.parent_import button{
+    margin-top: 1rem;
+    padding-block: .4rem;
+    background-color: green;
+    border:none;
+    color:white;
+    font-weight: 600;
+    border-radius: .2rem;
+}
+.parent_import button:hover{
+    background-color: rgb(12, 172, 12);
+}
+.parent_import input{
+    background-color: rgb(206, 228, 206);
+    padding-block: .4rem;
+    padding-inline: .4rem;
+    border-radius: .2rem;
+}
+
+
+
+

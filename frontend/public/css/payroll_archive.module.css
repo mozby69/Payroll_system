@@ -1,0 +1,42 @@
+.main_container{
+    height:100vh;
+    padding:1.4rem;
+    background-color: #efede7;
+}
+.title_header{
+    font-size:1.2rem;
+    color:rgb(3, 92, 3);
+}
+
+.first_section{
+    background-color: white;
+    margin-top:1rem;
+    padding:1rem 2rem;
+    border-radius: .4rem;
+    box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+}
+.header{
+    display: flex;
+    justify-content: space-between;
+    margin-top:1.2rem;
+}
+.header button{
+    padding:.4rem 1.2rem;
+    background-color: rgb(80, 161, 80);
+    border:none;
+    color:white;
+    border-radius: .2rem;
+}
+.filter_button {
+    display: flex;
+    align-items: center;
+    gap: 8px; 
+    padding: 2px 2px;
+}
+.filter_button h6{
+    font-size: 1rem;
+    font-weight: 600;
+}
+.filter_button:hover{
+    background-color: rgb(105, 168, 105);
+}
