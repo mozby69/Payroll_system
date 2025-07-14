@@ -1,0 +1,1807 @@
+import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { rawDB } from '../config/rawDb'; 
+
+
+
+
+export const importSQLHandler = async (req: Request, res: Response): Promise<void> => {
+  const filePath = req.file?.path;
+
+  if (!filePath) {
+    res.status(400).json({ message: 'No SQL file uploaded' });
+    return;
+  }
+
+  try {
+
+    const sql = fs.readFileSync(path.resolve(filePath), 'utf8');
+    const connection = await rawDB.getConnection();
+    await connection.query(sql);
+    connection.release();
+
+    fs.unlinkSync(filePath);
+
+    res.status(200).json({ message: 'SQL file executed successfully' });
+  } catch (error) {
+    console.error('SQL import error:', error);
+    res.status(500).json({ message: 'Failed to execute SQL' });
+  }
+};
+
+
+
+****************************************************************************************************************************
+import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { rawDB } from '../config/rawDb';
+import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+
+export const importSQLHandler = async (req: Request, res: Response): Promise<void> => {
+  const filePath = req.file?.path;
+  if (!filePath) {
+    res.status(400).json({ message: 'No SQL file uploaded' });
+    return;
+  }
+
+  const connection = await rawDB.getConnection();
+  let transactionStarted = false;
+
+  try {
+    const rawSQL = fs.readFileSync(path.resolve(filePath), 'utf8');
+    fs.unlinkSync(filePath);
+
+      const statements = rawSQL
+        .split(/;\s*(?=INSERT INTO)/i) 
+        .map(s => s.trim())
+        .filter(s => s.toLowerCase().startsWith('insert into'));
+    
+
+      const priorityOrder = [
+        'branches',
+        'employee',
+        'attendancecount',
+        'jobapplication',
+        'approved_application',
+        'attendance',
+      ];
+      
+      statements.sort((a, b) => {
+        const getIndex = (s: string) =>
+          priorityOrder.findIndex(p => s.toLowerCase().includes(`insert into ${p}`));
+        return getIndex(a) - getIndex(b);
+      });
+
+    await connection.query('START TRANSACTION');
+    transactionStarted = true;
+
+    for (const stmt of statements) {
+      console.log('Processing statement (raw):', stmt);
+
+      if (stmt.toLowerCase().includes('insert into branches')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const branchCode = match?.[1];
+        if (branchCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM branches WHERE BranchCode = ? LIMIT 1',
+            [branchCode]
+          );
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted BranchCode: ${branchCode}`);
+          }
+        }
+      }
+
+       else if (stmt.toLowerCase().includes('insert into employee')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const empCode = match?.[1];
+        if (empCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM employee WHERE EmpCode = ? LIMIT 1',
+            [empCode]
+          );
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted EmpCode: ${empCode}`);
+          }
+        }
+      } 
+
+      else if (stmt.toLowerCase().includes('insert into attendancecount')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const empCode = match?.[1];
+      
+        if (empCode) {
+          const [employeeRows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM employee WHERE EmpCode = ? LIMIT 1',
+            [empCode]
+          );
+      
+          if (employeeRows.length === 0) {
+            console.warn(`⚠️ Cannot insert attendancecount. Employee '${empCode}' does NOT exist in employee table.`);
+            return; 
+          }
+      
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM attendancecount WHERE EmpCode_id = ? LIMIT 1',
+            [empCode]
+          );
+      
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`✅ Inserted AttendanceCount for EmpCode_id: ${empCode}`);
+          } else {
+            console.log(`⏭️ Skipped duplicate AttendanceCount for: ${empCode}`);
+          }
+        } else {
+          console.warn('❌ Failed to extract EmpCode from attendancecount statement:', stmt);
+        }
+      }
+      
+       else if (stmt.toLowerCase().includes('insert into jobapplication')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const ApplicationCode = match?.[1]?.trim();
+        if (ApplicationCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM jobapplication WHERE ApplicationCode = ? LIMIT 1',
+            [ApplicationCode]
+          );
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted ApplicationCode: ${ApplicationCode}`);
+          }
+        }
+      } 
+
+      else if (stmt.toLowerCase().includes('insert into approved_application')) {
+        console.log('Raw statement for approved_application:', stmt); 
+        const match = stmt.match(/VALUES\s*\(\s*['"]([^"']+)['"]/); 
+        const approved_id = match?.[1]?.trim();
+
+        console.log('Match result:', match); 
+        console.log('Processing approved_id:', approved_id); 
+
+        if (approved_id) {
+          try {
+            const [rows] = await connection.query<RowDataPacket[]>(
+              'SELECT 1 FROM approved_application WHERE ApprovedId = ? LIMIT 1',
+              [approved_id]
+            );
+            console.log('Existing rows for approved_id:', rows); 
+            if (rows.length === 0) {
+              const [result] = await connection.query<ResultSetHeader>(stmt);
+              console.log('Insert result:', result); 
+              if (result.affectedRows === 0) {
+                throw new Error('No data inserted into approved_application');
+              }
+              console.log(`Inserted ApprovedId: ${approved_id}`);
+            }
+          } catch (queryError) {
+            const errorMessage = queryError instanceof Error ? queryError.message : 'Unknown query error';
+            throw new Error(`Failed to process approved_application query: ${errorMessage}`);
+          }
+        } else {
+          throw new Error(`Could not extract approved_id from statement: ${stmt}`);
+        }
+      }
+
+       else if (stmt.toLowerCase().includes('insert into attendance')) {
+        const match = stmt.match(/\('.*?',\s*'(.*?)',\s*'(.*?)'/);
+        const empCode = match?.[1];
+        const date = match?.[2];
+        if (empCode && date) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM attendance WHERE EmpCode_id = ? AND date = ? LIMIT 1',
+            [empCode, date]
+          );
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted Attendance for EmpCode_id: ${empCode}, Date: ${date}`);
+          }
+        }
+      }
+    }
+
+    await connection.query('COMMIT');
+    console.log('Transaction committed');
+    res.status(200).json({ message: 'SQL import completed with conditional inserts.' });
+  } catch (error) {
+    if (transactionStarted) {
+      await connection.query('ROLLBACK');
+      console.log('Transaction rolled back');
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('SQL import error:', errorMessage);
+    res.status(500).json({ message: `Failed to import SQL file: ${errorMessage}` });
+  } finally {
+    connection.release();
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*************************************************************************************
+DISPLAY DATA WITHOUT PAGINATION OR SEARCH
+import { prisma } from '../config/db';
+import { Request, Response } from 'express';
+
+export const getEmployees = async (req: Request, res: Response) => {
+    const employees = await prisma.employee.findMany({
+      select: {
+        EmpCode: true,
+        Firstname: true,
+        Gender: true,
+        DateofBirth: true,
+        CivilStatus: true,
+      },
+    });
+  
+    res.status(200).json(employees);
+  };
+  
+
+
+
+
+
+***********************************************************************************************************************
+
+WORKING IMPORT 
+May 29 2025
+
+import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { rawDB } from '../config/rawDb';
+import { RowDataPacket } from 'mysql2/promise';
+
+export const importSQLHandler = async (req: Request, res: Response): Promise<void> => {
+  const filePath = req.file?.path;
+  if (!filePath) {
+    res.status(400).json({ message: 'No SQL file uploaded' });
+    return;
+  }
+
+  const connection = await rawDB.getConnection();
+  let transactionStarted = false;
+
+  try {
+    const rawSQL = fs.readFileSync(path.resolve(filePath), 'utf8');
+    fs.unlinkSync(filePath);
+
+    const statements = rawSQL
+      .split(/;\s*(?=REPLACE INTO|INSERT INTO)/i)
+      .map(s => s.trim())
+      .filter(s => /^(insert into|replace into)/i.test(s));
+
+    const priorityOrder = [
+      'branches',
+      'employee',
+      'attendancecount',
+      'jobapplication',
+      'approved_application',
+      'attendance',
+    ];
+
+    statements.sort((a, b) => {
+      const getIndex = (s: string) =>
+        priorityOrder.findIndex(p => s.toLowerCase().includes(`into ${p}`));
+      return getIndex(a) - getIndex(b);
+    });
+
+    await connection.query('START TRANSACTION');
+    transactionStarted = true;
+
+    for (const stmt of statements) {
+      const normalizedStmt = stmt.toLowerCase();
+
+      if (normalizedStmt.includes('into branches')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const branchCode = match?.[1];
+        if (branchCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM branches WHERE BranchCode = ? LIMIT 1',
+            [branchCode]
+          );
+          const existing = rows[0];
+          const isDifferent = !existing || !stmt.includes(existing.Company);
+          if (!existing) {
+            await connection.query(stmt);
+            console.log(`Inserted BranchCode: ${branchCode}`);
+          } else if (isDifferent) {
+            await connection.query(stmt.replace(/insert into/i, 'REPLACE INTO'));
+            console.log(`Updated BranchCode: ${branchCode}`);
+          }
+        }
+      } 
+      else if (normalizedStmt.includes('into employee')) {
+        const match = stmt.match(/\('(.+?)',/);
+        const empCode = match?.[1];
+        if (empCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM employee WHERE EmpCode = ? LIMIT 1',
+            [empCode]
+          );
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted EmpCode: ${empCode}`);
+          } else {
+            await connection.query(stmt.replace(/insert into/i, 'REPLACE INTO'));
+            console.log(`Updated EmpCode: ${empCode}`);
+          }
+        }
+      }
+      
+      else if (normalizedStmt.includes('into attendancecount')) {
+        const match = stmt.match(/\(\s*(\d+),\s*'([^']+)'/);
+        const id = match?.[1];
+        const empCode = match?.[2];
+      
+        if (id && empCode) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM attendancecount WHERE ID = ? LIMIT 1',
+            [id]
+          );
+      
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`✅ Inserted AttendanceCount ID: ${id}, EmpCode_id: ${empCode}`);
+          } else {
+            await connection.query(stmt.replace(/insert into/i, 'REPLACE INTO'));
+            console.log(`♻️ Updated AttendanceCount ID: ${id}, EmpCode_id: ${empCode}`);
+          }
+        } else {
+          console.warn('❌ Failed to extract ID and EmpCode from attendancecount insert');
+        }
+      }
+      
+
+
+      else if (normalizedStmt.includes('into attendance')) {
+        const match = stmt.match(/\('.*?',\s*'(.*?)',\s*'(.*?)'/);
+        const empCode = match?.[1]; 
+        const date = match?.[2];   
+      
+        if (empCode && date) {
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM attendance WHERE ID = ? AND date = ? LIMIT 1',
+            [empCode, date]
+          );
+      
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`✅ Inserted Attendance for EmpCode_id: ${empCode}, Date: ${date}`);
+          } else {
+          
+            await connection.query(stmt.replace(/insert into/i, 'REPLACE INTO'));
+            console.log(`♻️ Updated Attendance for EmpCode_id: ${empCode}, Date: ${date}`);
+          }
+        }
+      }
+      
+      
+    
+    }
+    await connection.query('COMMIT');
+    console.log('Transaction committed');
+    res.status(200).json({ message: 'SQL import completed with insert/update logic.' });
+  } catch (error) {
+    if (transactionStarted) {
+      await connection.query('ROLLBACK');
+      console.log('Transaction rolled back');
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('SQL import error:', errorMessage);
+    res.status(500).json({ message: `Failed to import SQL file: ${errorMessage}` });
+  } finally {
+    connection.release();
+  }
+};
+
+
+
+
+***********************************************************************************************************************+
+
+
+model AttendanceCount {
+  ID Int @id @default(autoincrement()) @map("ID")
+  Vacation Float? 
+  Sick Float?
+  GracePeriod DateTime @db.Time(0) 
+  memo String @db.VarChar(2)
+  last_grace_period_month DateTime @db.Date
+  last_leaves_year DateTime @db.Date
+  monthly_reset DateTime @db.Date
+  EmpCode     Employee?  @relation(fields: [EmpCode_id], references: [EmpCode]) 
+  EmpCode_id   String?  @db.VarChar(20)
+}
+
+
+model Attendance{
+  ID Int @id @default(autoincrement()) @map("ID")
+  Empname String @db.VarChar(50)
+  date DateTime @db.Date
+  timein DateTime? @db.Time(6)
+  timeout DateTime? @db.Time(6)
+  breakout DateTime? @db.Time(6)
+  breakin DateTime? @db.Time(6)
+  totallateness String? @db.VarChar(50)
+  latecount String? @db.VarChar(6)
+  totalundertime String? @db.VarChar(8)
+  totalovertime String? @db.VarChar(8)
+  created_at DateTime? @db.DateTime(6)
+  approveOT Boolean?
+  late String? @db.VarChar(10)
+  absent String? @db.VarChar(10)
+  otrequest String? @db.VarChar(30)
+  remarks String? @db.VarChar(400)
+  user_branchname String? @db.VarChar(30)
+  tripTravel String? @db.VarChar(50)
+  flex_time String? @db.VarChar(30)
+  prev_gp String @db.VarChar(10)
+  EmpCode  Employee?  @relation(fields: [EmpCode_id], references: [EmpCode]) 
+  EmpCode_id String? @db.VarChar(20)
+
+  @@unique([EmpCode_id, date])
+}
+
+
+model approvedapplication{
+  ApprovedId String   @id @db.VarChar(20)
+  JobStatus String? @db.VarChar(50)
+  ProbiDate DateTime? @db.Date
+  RegDate DateTime? @db.Date
+  ProbationaryOffer String? @db.VarChar(100)
+  ApprovedDate DateTime? @db.DateTime(6)
+  ApprovedStatus String? @db.VarChar(50)
+  RegularOffer String? @db.VarChar(100)
+  TraineeOffer String? @db.VarChar(100)
+  Status1 String? @db.VarChar(30)
+  ApplicationCode  jobapplication?  @relation(fields: [ApplicationCode_id], references: [ApplicationCode]) 
+  ApplicationCode_id String? @db.VarChar(20)
+
+  @@map("approved_application")
+}
+
+model jobapplication {
+  ApplicationCode String  @id @db.VarChar(20)
+  DateApplied DateTime? @db.Date
+  YearsofExp String? @db.VarChar(20)
+  ExpectedSalary String? @db.VarChar(20)
+  ApplicationStatus String? @db.VarChar(50)
+  Remarks String? @db.VarChar(100)
+  WhyHire String? @db.VarChar(500)
+  approved_application approvedapplication[] @relation()
+}
+
+
+
+
+
+
+
+
+
+
+*********************************************
+
+
+
+
+june 3 2025
+
+import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { rawDB } from '../config/rawDb';
+import { RowDataPacket } from 'mysql2/promise';
+
+export const importSQLHandler = async (req: Request, res: Response): Promise<void> => {
+  const filePath = req.file?.path;
+  const originalFileName = req.file?.originalname || '';
+  const baseName = path.basename(originalFileName, path.extname(originalFileName));
+  
+
+  if (!filePath) {
+    res.status(400).json({ message: 'No SQL file uploaded' });
+    return;
+  }
+
+  const connection = await rawDB.getConnection();
+  let transactionStarted = false;
+
+  try {
+    const rawSQL = fs.readFileSync(path.resolve(filePath), 'utf8');
+    fs.unlinkSync(filePath);
+
+
+    if (/^employee_summary/i.test(baseName)) {
+
+      const statements = rawSQL
+        .split(/;\s*(?=INSERT INTO)/i)
+        .map(s => s.trim())
+        .filter(s => /^insert into/i.test(s));
+
+      await connection.query('START TRANSACTION');
+      transactionStarted = true;
+
+      for (const stmt of statements) {
+        if (/insert into employee_summary/i.test(stmt)) {
+          const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+          if (!match) continue;
+
+          const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+          const values = match[2]
+            .split(',')
+            .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+          const payCode = values[0];
+          const empCodeId = values[1];
+
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM employee_summary WHERE PayCode = ? AND EmpCode_id = ? LIMIT 1',
+            [payCode, empCodeId]
+          );
+
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted EmployeeSummary: (${payCode}, ${empCodeId})`);
+          } else {
+            const updateCols = columns.slice(2);
+            const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+            const query = `
+              INSERT INTO employee_summary (${columns.join(', ')})
+              VALUES (${columns.map(() => '?').join(', ')})
+              ON DUPLICATE KEY UPDATE ${updateClause}
+            `;
+            await connection.query(query, values);
+            console.log(`Updated EmployeeSummary: (${payCode}, ${empCodeId})`);
+          }
+        }
+      }
+
+      await connection.query('COMMIT');
+      console.log('Transaction committed for employee_summary.sql');
+      res.status(200).json({ message: 'Employee summary import completed.' });
+      return; 
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // FOR EMPLOYEES DETAILS FAMILY,PERSONAL DETAILS
+
+    const statements = rawSQL
+      .split(/;\s*(?=INSERT INTO)/i)
+      .map(s => s.trim())
+      .filter(s => /^insert into/i.test(s));
+
+    const priorityOrder = ['branches', 'employee', 'employeepr', 'empprevemployer', 'empeducbg', 'familybgrnd','empsiblings','empspouse','empchildren'];
+
+    statements.sort((a, b) => {
+      const getIndex = (s: string) =>
+        priorityOrder.findIndex(p => s.toLowerCase().includes(`into ${p}`));
+      return getIndex(a) - getIndex(b);
+    });
+
+    await connection.query('START TRANSACTION');
+    transactionStarted = true;
+
+
+
+
+
+
+
+    for (const stmt of statements) {
+
+
+      if (/insert into branches/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const branchCode = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM branches WHERE BranchCode = ? LIMIT 1',
+          [branchCode]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted BranchCode: ${branchCode}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO branches (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated BranchCode: ${branchCode}`);
+        }
+      }
+
+
+
+
+      else if (/insert into employee/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const empCode = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM employee WHERE EmpCode = ? LIMIT 1',
+          [empCode]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpCode: ${empCode}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO employee (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpCode: ${empCode}`);
+        }
+      }
+
+
+
+
+
+
+      else if (/insert into employeepr/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const payrollId = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM employeepr WHERE Payrollid = ? LIMIT 1',
+          [payrollId]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted Payrollid: ${payrollId}`);
+        } else {
+          const updateCols = columns.slice(1); // skip Payrollid
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO employeepr (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated Payrollid: ${payrollId}`);
+        }
+      }
+
+
+
+
+      else if (/insert into empprevemployer/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empprevemployer WHERE EmpEducBgID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpEducBgID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empprevemployer (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpEducBgID: ${id}`);
+        }
+      }
+
+
+
+
+
+      else if (/insert into empeducbg/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empeducbg WHERE EmpEducBgID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpEducBgID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empeducbg (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpEducBgID: ${id}`);
+        }
+      }
+
+
+
+
+      else if (/insert into familybgrnd/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM familybgrnd WHERE FamilyBgrndID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted FamilyBgrndID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO familybgrnd (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated FamilyBgrndID: ${id}`);
+        }
+      }
+
+
+
+
+
+      else if (/insert into empsiblings/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empsiblings WHERE EmpSiblingID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpSiblingID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empsiblings (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpSiblingID: ${id}`);
+        }
+      }
+
+
+
+
+
+      
+      else if (/insert into empspouse/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empspouse WHERE EmpSpousedID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpSpousedID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empspouse (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpSpousedID: ${id}`);
+        }
+      }
+
+
+
+          
+      else if (/insert into empchildren/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empchildren WHERE EmpChildrenID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpChildrenID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empchildren (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpChildrenID: ${id}`);
+        }
+      }
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    await connection.query('COMMIT');
+    console.log('Transaction committed');
+    res.status(200).json({ message: 'SQL import completed with insert/update logic.' });
+
+  } catch (error) {
+    if (transactionStarted) {
+      await connection.query('ROLLBACK');
+      console.log('Transaction rolled back');
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('SQL import error:', errorMessage);
+    res.status(500).json({ message: `Failed to import SQL file: ${errorMessage}` });
+  } finally {
+    connection.release();
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+**********************************************************************************************************************************************
+
+May 9 2025
+
+current working display prepare payrollId
+
+
+export const getPreparePayroll = async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const search = (req.query.search as string)?.trim().toLowerCase() || "";
+      const offset = (page - 1) * limit;
+  
+      const whereClause = search
+      ? {
+          OR: [
+            { PayCode: { contains: search.toLowerCase() } },
+            { EmpCodeId: { contains: search.toLowerCase() } },
+          ],
+        }
+      : {};
+    
+  
+      const [employees_payroll, total] = await Promise.all([
+        prisma.employeeSummary.findMany({
+          where: whereClause,
+          skip: offset,
+          take: limit,
+          select: {
+            PayCode: true,
+            TotalHoursWorked: true,
+            LateCount:true,
+            TotalAbsentHours:true,
+            TotalUndertime: true,
+            TotalOvertime: true,
+            WeekendOt: true,
+            EmpCodeId:true,
+          },
+          orderBy: {
+            PayCode: "asc",
+          },
+        }),
+        prisma.employeeSummary.count({ where: whereClause }),
+      ]);
+  
+      const totalPages = Math.ceil(total / limit);
+
+      const latestPaycodeResult = await prisma.$queryRawUnsafe<{ PayCode: string }[]>(`
+        SELECT PayCode FROM employee_summary
+        ORDER BY STR_TO_DATE(
+          CONCAT(SUBSTRING_INDEX(PayCode, '-', -1), '-',
+                 MONTH(STR_TO_DATE(SUBSTRING_INDEX(PayCode, '-', 1), '%M')), '-',
+                 SUBSTRING_INDEX(SUBSTRING_INDEX(PayCode, '-', -2), '-', 1)
+          ),
+          '%Y-%m-%d'
+        ) DESC
+        LIMIT 1
+      `);
+  
+      const latestPayCode = latestPaycodeResult[0]?.PayCode || null;
+  
+      res.status(200).json({
+        data: employees_payroll,
+        latestPayCode,
+        pagination: {
+          total,
+          totalPages,
+          currentPage: page,
+          perPage: limit,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+
+
+
+
+  june 11 2025 import ******************************************************************************************************************************
+
+
+
+
+
+  import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { rawDB } from '../config/rawDb';
+import { RowDataPacket } from 'mysql2/promise';
+
+export const importSQLHandler = async (req: Request, res: Response): Promise<void> => {
+  const filePath = req.file?.path;
+  const originalFileName = req.file?.originalname || '';
+  const baseName = path.basename(originalFileName, path.extname(originalFileName));
+  
+
+  if (!filePath) {
+    res.status(400).json({ message: 'No SQL file uploaded' });
+    return;
+  }
+
+  const connection = await rawDB.getConnection();
+  let transactionStarted = false;
+
+  try {
+    const rawSQL = fs.readFileSync(path.resolve(filePath), 'utf8');
+    fs.unlinkSync(filePath);
+
+
+    if (/^employee_summary/i.test(baseName)) {
+
+      const statements = rawSQL
+        .split(/;\s*(?=INSERT INTO)/i)
+        .map(s => s.trim())
+        .filter(s => /^insert into/i.test(s));
+
+      await connection.query('START TRANSACTION');
+      transactionStarted = true;
+
+      for (const stmt of statements) {
+        if (/insert into employee_summary/i.test(stmt)) {
+          const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+          if (!match) continue;
+
+          const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+          const values = match[2]
+            .split(',')
+            .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+          const payCode = values[0];
+          const empCodeId = values[1];
+
+          const [rows] = await connection.query<RowDataPacket[]>(
+            'SELECT 1 FROM employee_summary WHERE PayCode = ? AND EmpCode_id = ? LIMIT 1',
+            [payCode, empCodeId]
+          );
+
+          if (rows.length === 0) {
+            await connection.query(stmt);
+            console.log(`Inserted EmployeeSummary: (${payCode}, ${empCodeId})`);
+          } else {
+            const updateCols = columns.slice(2);
+            const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+            const query = `
+              INSERT INTO employee_summary (${columns.join(', ')})
+              VALUES (${columns.map(() => '?').join(', ')})
+              ON DUPLICATE KEY UPDATE ${updateClause}
+            `;
+            await connection.query(query, values);
+            console.log(`Updated EmployeeSummary: (${payCode}, ${empCodeId})`);
+          }
+        }
+      }
+
+      await connection.query('COMMIT');
+      console.log('Transaction committed for employee_summary.sql');
+      res.status(200).json({ message: 'Employee summary import completed.' });
+      return; 
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // FOR EMPLOYEES DETAILS FAMILY,PERSONAL DETAILS
+
+    const statements = rawSQL
+      .split(/;\s*(?=INSERT INTO)/i)
+      .map(s => s.trim())
+      .filter(s => /^insert into/i.test(s));
+
+    const priorityOrder = ['branches', 'employee', 'employeepr', 'empprevemployer', 'empeducbg', 'familybgrnd','empsiblings','empspouse','empchildren'];
+
+    statements.sort((a, b) => {
+      const getIndex = (s: string) =>
+        priorityOrder.findIndex(p => s.toLowerCase().includes(`into ${p}`));
+      return getIndex(a) - getIndex(b);
+    });
+
+    await connection.query('START TRANSACTION');
+    transactionStarted = true;
+
+
+
+
+
+
+
+    for (const stmt of statements) {
+
+
+      if (/insert into branches/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const branchCode = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM branches WHERE BranchCode = ? LIMIT 1',
+          [branchCode]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted BranchCode: ${branchCode}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO branches (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated BranchCode: ${branchCode}`);
+        }
+      }
+
+
+
+
+      else if (/insert into employee/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const empCode = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM employee WHERE EmpCode = ? LIMIT 1',
+          [empCode]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpCode: ${empCode}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO employee (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpCode: ${empCode}`);
+        }
+      }
+
+
+
+
+
+
+      else if (/insert into employeepr/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const payrollId = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM employeepr WHERE Payrollid = ? LIMIT 1',
+          [payrollId]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted Payrollid: ${payrollId}`);
+        } else {
+          const updateCols = columns.slice(1); // skip Payrollid
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO employeepr (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated Payrollid: ${payrollId}`);
+        }
+      }
+
+
+
+
+      else if (/insert into empprevemployer/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empprevemployer WHERE EmpEducBgID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpEducBgID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empprevemployer (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpEducBgID: ${id}`);
+        }
+      }
+
+
+
+
+
+      else if (/insert into empeducbg/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empeducbg WHERE EmpEducBgID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpEducBgID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1); 
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empeducbg (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpEducBgID: ${id}`);
+        }
+      }
+
+
+
+
+      else if (/insert into familybgrnd/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM familybgrnd WHERE FamilyBgrndID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted FamilyBgrndID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO familybgrnd (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated FamilyBgrndID: ${id}`);
+        }
+      }
+
+
+
+
+
+      else if (/insert into empsiblings/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empsiblings WHERE EmpSiblingID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpSiblingID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empsiblings (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpSiblingID: ${id}`);
+        }
+      }
+
+
+
+
+
+      
+      else if (/insert into empspouse/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empspouse WHERE EmpSpousedID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpSpousedID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empspouse (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpSpousedID: ${id}`);
+        }
+      }
+
+
+
+          
+      else if (/insert into empchildren/i.test(stmt)) {
+        const match = stmt.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (!match) continue;
+
+        const columns = match[1].split(',').map(c => c.trim().replace(/`/g, ''));
+        const values = match[2]
+          .split(',')
+          .map(v => v.trim().replace(/^'(.*)'$/, '$1').replace(/''/g, "'"));
+
+        const id = values[0];
+
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT 1 FROM empchildren WHERE EmpChildrenID = ? LIMIT 1',
+          [id]
+        );
+
+        if (rows.length === 0) {
+          await connection.query(stmt);
+          console.log(`Inserted EmpChildrenID: ${id}`);
+        } else {
+          const updateCols = columns.slice(1);
+          const updateClause = updateCols.map(col => `${col} = VALUES(${col})`).join(', ');
+          const query = `
+            INSERT INTO empchildren (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON DUPLICATE KEY UPDATE ${updateClause}
+          `;
+          await connection.query(query, values);
+          console.log(`Updated EmpChildrenID: ${id}`);
+        }
+      }
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    await connection.query('COMMIT');
+    console.log('Transaction committed');
+    res.status(200).json({ message: 'SQL import completed with insert/update logic.' });
+
+  } catch (error) {
+    if (transactionStarted) {
+      await connection.query('ROLLBACK');
+      console.log('Transaction rolled back');
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('SQL import error:', errorMessage);
+    res.status(500).json({ message: `Failed to import SQL file: ${errorMessage}` });
+  } finally {
+    connection.release();
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+  ************************************************************************************************************************************
+
+        JUNE 30 2025
+
+
+
+
+
+
+
+        import { prisma } from '../config/db';
+import { Request, Response } from 'express';
+import { Parser } from "json2csv";
+import { promises as fs } from "fs";
+import path from "path";
+
+
+
+export const getPreparePayroll = async (req: Request, res: Response) => {
+  try {
+    const search = (req.query.search as string)?.trim().toLowerCase() || "";
+   
+    const year = new Date().getFullYear();
+    const payCodeOptionsResult = await prisma.$queryRaw<{ PayCode: string }[]>`
+    SELECT DISTINCT PayCode FROM employee_summary
+    WHERE 
+      RIGHT(TRIM(PayCode), 4) = ${year.toString()}
+    ORDER BY STR_TO_DATE(
+      CONCAT(
+        SUBSTRING_INDEX(TRIM(PayCode), '-', -1), '-',
+        MONTH(STR_TO_DATE(SUBSTRING_INDEX(TRIM(PayCode), '-', 1), '%M')), '-',
+        SUBSTRING_INDEX(SUBSTRING_INDEX(TRIM(PayCode), '-', -2), '-', 1)
+      ),
+      '%Y-%m-%d') DESC`;
+
+
+    const selectedPayCode = req.query.paycode as string | undefined;
+
+    const whereClause = {
+      AND: [
+        selectedPayCode ? { PayCode: selectedPayCode } : {},
+        search
+          ? {
+              OR: [
+                { PayCode: { contains: search, mode: "insensitive" } },
+                { EmpCodeId: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {},
+      ],
+    };
+
+    const [rawEmployeesPayroll, total] = await Promise.all([
+      prisma.employeeSummary.findMany({
+        where: whereClause,
+   
+        select: {
+          PayCode: true,
+          TotalHoursWorked: true,
+          LateCount: true,
+          TotalAbsentHours: true,
+          TotalUndertime: true,
+          TotalOvertime: true,
+          OvertimeAtt:true,
+          NightShiftAtt:true,
+          RegularAtt:true,
+          NightShiftOtAtt:true,
+          EmpCodeId: true,
+          EmpCode: {
+            select: {
+              employeepayroll: {
+                orderBy: {
+                  payroll_id: "desc",
+                  
+                },
+                take: 1,
+                select: {
+                  basic_salary: true,
+                  GrossPay:true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          EmpCodeId: "asc",
+        },
+      }),
+      prisma.employeeSummary.count({ where: whereClause }),
+    ]);
+
+
+    const flattenedData = rawEmployeesPayroll.map((emp) => ({
+      PayCode: emp.PayCode,
+      TotalHoursWorked: emp.TotalHoursWorked,
+      LateCount: emp.LateCount,
+      TotalAbsentHours: emp.TotalAbsentHours,
+      TotalUndertime: emp.TotalUndertime,
+      TotalOvertime: emp.TotalOvertime,
+      OvertimeAtt:emp.OvertimeAtt,
+      NightShiftAtt:emp.NightShiftAtt,
+      EmpCodeId: emp.EmpCodeId,
+      RegularAtt:emp.RegularAtt,
+      NightShiftOtAtt:emp.NightShiftOtAtt,
+      basic_salary: emp.EmpCode?.employeepayroll?.[0]?.basic_salary ?? "0", 
+      GrossPay: emp.EmpCode?.employeepayroll?.[0]?.GrossPay ?? "0", 
+    }));
+    
+    res.status(200).json({
+      data: flattenedData, 
+      payCodeOptions: payCodeOptionsResult.map((p) => p.PayCode),
+
+    });
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+
+export const updatePayrollEntry = async (req: Request, res: Response): Promise<void> => {
+  const { payCode, empCodeId } = req.params;
+  console.log("Updating payroll for:", { payCode, empCodeId });
+
+  const existing = await prisma.employeeSummary.findUnique({
+    where: {
+      PayCode_EmpCodeId: {
+        PayCode: payCode,
+        EmpCodeId: empCodeId,
+      },
+    },
+  });
+
+  if (!existing) {
+    res.status(404).json({ message: "Record not found with composite key." });
+    return; 
+  }
+
+  const {TotalHoursWorked,LateCount,TotalAbsentHours,TotalUndertime,TotalOvertime} = req.body || {};
+
+  const basic_salary = req.body?.EmpCode?.employeepayroll?.[0]?.basic_salary;
+
+  try {
+  
+    await prisma.employeeSummary.update({
+      where: {
+        PayCode_EmpCodeId: {
+          PayCode: payCode,
+          EmpCodeId: empCodeId,
+        },
+      },
+      data: {TotalHoursWorked,LateCount,TotalAbsentHours,TotalUndertime,TotalOvertime},
+    });
+
+
+    if (basic_salary !== undefined) {
+      const latestPayroll = await prisma.employee_payroll.findFirst({
+        where: {
+          EmpCodeId: empCodeId,
+        },
+        orderBy: {
+          payroll_id: "desc",
+        },
+      });
+
+      if (latestPayroll) {
+        await prisma.employee_payroll.update({
+          where: {
+            payroll_id: latestPayroll.payroll_id,
+          },
+          data: {
+            basic_salary,
+          },
+        });
+
+        console.log(`Updated salary to ${basic_salary} for payroll_id: ${latestPayroll.payroll_id}`);
+      } else {
+        console.warn(`No employee_payroll found for ${empCodeId}, unable to update basic_salary`);
+      }
+    }
+
+    res.status(200).json({ message: "Updated successfully" });
+  } catch (err) {
+    console.error("Prisma update error:", err);
+    res.status(500).json({ message: "Update failed" });
+  }
+};
+
+
+
+
+
+
+
+export const savePayrollToArchive = async (req: Request, res: Response): Promise<void> => {
+  const { paycode, totals, computedData } = req.body;
+
+  if (!paycode || !computedData) {
+    res.status(400).json({ message: "PayCode and computedData are required." });
+    return;
+  }
+
+  try {
+
+    const exists = await prisma.payslipArchive.findFirst({
+      where: { PayCycle: paycode },
+    });
+
+    if (exists) {
+       res.status(409).json({
+        message: `Payroll for "${paycode}" has already been archived.`,
+      });
+    }
+    
+    const csvDir = path.join(__dirname, '..', 'uploads', 'payroll_archives');
+    const fileName = `archive_${paycode}.csv`;
+    const filePath = path.join(csvDir, fileName);
+
+    const parser = new Parser();
+    const csv = parser.parse(computedData);
+
+    await fs.writeFile(filePath, csv);
+
+    await prisma.payslipArchive.create({
+      data: {
+        PayCycle: paycode,
+        Path: `uploads/payroll_archives/${fileName}`,
+        Total_Late: totals.Total_Late,
+        Total_Absent: totals.Total_Absent,
+        Total_OverTimePay: totals.Total_OverTimePay,
+      },
+    });
+
+    res.status(200).json({ message: 'Payroll archived and CSV saved successfully.' });
+  } catch (error) {
+    console.error('Error archiving payroll:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
+
