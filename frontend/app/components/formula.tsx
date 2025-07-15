@@ -16,26 +16,35 @@ const parseJsonField = (field: string | Record<string, string> | null | undefine
 
 const toFloatHM = (timeStr: string): number => {
   if (!timeStr || typeof timeStr !== "string") return 0;
-  const [hh, mm] = timeStr.split(":");
-  return parseFloat(`${parseInt(hh)}.${mm}`);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  return hh + mm / 60;
 };
 
-const computeFromSource = (labelMap: Record<string, number>, source: Record<string, string>, dailyRate: number): number => {
+// const toFloatHM = (timeStr: string): number => {
+//   if (!timeStr || typeof timeStr !== "string") return 0;
+//   const [hh, mm] = timeStr.split(":");
+//   return parseFloat(`${parseInt(hh)}.${mm}`);
+// };
+
+
+const computeFromSource = (labelMap: Record<string, number>,source: Record<string, string>,dailyRate: number,isOvertime = false): number => {
   let total = 0;
+
   for (const key in source) {
     const multiplier = labelMap[key];
     if (!multiplier) continue;
 
-    const hours = toFloatHM(source[key]); 
-    const DailyPay = parseFloat(dailyRate.toFixed(1)) * multiplier;
-    const OT_RATE = (DailyPay / 8) * 1.25;
-    const OT_PAY = OT_RATE * hours;
-    // const result = Math.floor(OT_PAY * 100) / 100;
-    const result = OT_PAY;
-    total += result + DailyPay;
+    const hours = toFloatHM(source[key]);
+    const adjustedDaily = dailyRate * multiplier;
+    const baseHourly = adjustedDaily / 8;
+    // const result = isOvertime ? baseHourly * hours : (baseHourly * 1.25) * hours; 
+    const result = isOvertime ? (baseHourly * 1.25) * hours : baseHourly * hours; 
+    total += parseFloat(result.toFixed(2)); 
   }
+
   return total;
 };
+
 
 
 const Computation = {
@@ -45,7 +54,6 @@ const Computation = {
       const salary = parseFloat(emp.basic_salary);
       const basic_pay = salary / 2;
 
-
       const dailyRate = (salary * 12) / 262;
       const perLatePenalty = dailyRate / 32;
   
@@ -54,8 +62,6 @@ const Computation = {
   
       const rawAbsent = Number(emp.TotalAbsentHours) || 0;
       const absent_result = (dailyRate * rawAbsent).toFixed(2);
-
-
 
       const overtimeAtt = parseJsonField(emp.OvertimeAtt);
       const nightShiftAtt = parseJsonField(emp.NightShiftAtt);
@@ -109,10 +115,10 @@ const Computation = {
       };
   
       const totalOvertimeAmount =
-        computeFromSource(overtimeLabels, overtimeAtt, dailyRate) +
-        computeFromSource(nightShiftLabels, nightShiftAtt, dailyRate) +
-        computeFromSource(regularLabels, regularAtt, dailyRate) +
-        computeFromSource(nightShiftOtLabels, nightShiftOtAtt, dailyRate);
+        computeFromSource(overtimeLabels, overtimeAtt, dailyRate,true) +
+        computeFromSource(nightShiftLabels, nightShiftAtt, dailyRate,false) +
+        computeFromSource(regularLabels, regularAtt, dailyRate,false) +
+        computeFromSource(nightShiftOtLabels, nightShiftOtAtt, dailyRate,true);
 
         const isSecondCutoff = selectedPayCode.includes("-15-");
         const philhealth_cont = isSecondCutoff ? basic_pay * philhealthRate : 0;

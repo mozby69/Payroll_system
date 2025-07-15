@@ -235,7 +235,7 @@ model Employee_payroll{
   EmpCodeId String  @db.VarChar(20) @map("EmpCode_id")
   EmpCode Employee @relation(fields: [EmpCodeId], references: [EmpCode])
 
-  pagibigId Int? @map("pagibig_id")
+  pagibigId String? @map("pagibig_id")
   pagibig_id PagIbig_List? @relation(fields: [pagibigId], references: [pagibig_id])
 
 
@@ -245,7 +245,7 @@ model Employee_payroll{
 
 
 model PagIbig_List{
-  pagibig_id Int @id @default(autoincrement())
+  pagibig_id String @id @db.VarChar(20)
   pagibig_employee_share Decimal? @db.Decimal(10,2)
   pagibig_employer_share Decimal? @db.Decimal(10,2)
     

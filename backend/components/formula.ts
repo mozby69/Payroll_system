@@ -47,8 +47,8 @@ const computeFromSource = (labelMap: Record<string, number>, source: Record<stri
     const DailyPay = parseFloat(dailyRate.toFixed(1)) * multiplier;
     const OT_RATE = (DailyPay / 8) * 1.25;
     const OT_PAY = OT_RATE * hours;
-    // const result = Math.floor(OT_PAY * 100) / 100;
-    const result = OT_PAY;
+    const result = Math.floor(OT_PAY * 100) / 100;
+    // const result = OT_PAY;
     total += result + DailyPay;
   }
   return total;

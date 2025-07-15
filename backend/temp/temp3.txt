@@ -256,19 +256,19 @@ export const savePayrollToArchive = async (req: Request, res: Response): Promise
       });
     }
     
-    // const csvDir = path.join(__dirname, '..', 'uploads', 'payroll_archives');
-    // const fileName = `archive_${paycode}.csv`;
-    // const filePath = path.join(csvDir, fileName);
+    const csvDir = path.join(__dirname, '..', 'uploads', 'payroll_archives');
+    const fileName = `archive_${paycode}.csv`;
+    const filePath = path.join(csvDir, fileName);
 
-    // const parser = new Parser();
-    // const csv = parser.parse(computedData);
+    const parser = new Parser();
+    const csv = parser.parse(computedData);
 
-    // await fs.writeFile(filePath, csv);
+    await fs.writeFile(filePath, csv);
 
     await prisma.payslipArchive.create({
       data: {
         PayCycle: paycode,
-        Path: `uploads/payroll_archives/`,
+        Path: `uploads/payroll_archives/${fileName}`,
         Total_Late: totals.Total_Late,
         Total_Absent: totals.Total_Absent,
         Total_OverTimePay: totals.Total_OverTimePay,
@@ -337,22 +337,8 @@ export const SaveNewEmployeePayroll = async (req: Request, res: Response):Promis
 
     const salary = parseFloat(basic_salary);
 
-    const latestEntry = await prisma.pagIbig_List.findFirst({
-      orderBy: { pagibig_id: 'desc' },
-      select: { pagibig_id: true }
-    });
-
-    let newId = 'PG1';
-
-    if (latestEntry?.pagibig_id) {
-      const numericPart = parseInt(latestEntry.pagibig_id.replace('PG', ''), 10);
-      newId = `PG${numericPart + 1}`;
-    }
-        
-
     const pagibig = await prisma.pagIbig_List.create({
       data: {
-        pagibig_id: newId,
         EmpCodeId,
         pagibig_employee_share: pagibig_employee_share ? parseFloat(pagibig_employee_share): undefined,
         pagibig_employer_share: pagibig_employer_share ? parseFloat(pagibig_employer_share): undefined,
